@@ -20,7 +20,7 @@
     "micromark": "^4.0.2",
     "micromark-extension-gfm-table": "^2.1.1",
     "pdf-lib": "^1.17.1",
-    "pdfjs-dist": "^5.6.205",
+    "pdfjs-dist": "^5.7.284",
     "tesseract.js": "7.0.0"
   },
   "overrides": {
