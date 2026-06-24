@@ -18,14 +18,6 @@ const copies = [
     to: path.join(vendorRoot, "worker.min.js"),
   },
   {
-    from: path.join(repoRoot, "node_modules", "tesseract.js-core", "tesseract-core.wasm.js"),
-    to: path.join(coreRoot, "tesseract-core.wasm.js"),
-  },
-  {
-    from: path.join(repoRoot, "node_modules", "tesseract.js-core", "tesseract-core.wasm"),
-    to: path.join(coreRoot, "tesseract-core.wasm"),
-  },
-  {
     from: path.join(repoRoot, "node_modules", "tesseract.js-core", "tesseract-core-lstm.wasm.js"),
     to: path.join(coreRoot, "tesseract-core-lstm.wasm.js"),
   },
@@ -34,28 +26,12 @@ const copies = [
     to: path.join(coreRoot, "tesseract-core-lstm.wasm"),
   },
   {
-    from: path.join(repoRoot, "node_modules", "tesseract.js-core", "tesseract-core-simd.wasm.js"),
-    to: path.join(coreRoot, "tesseract-core-simd.wasm.js"),
-  },
-  {
-    from: path.join(repoRoot, "node_modules", "tesseract.js-core", "tesseract-core-simd.wasm"),
-    to: path.join(coreRoot, "tesseract-core-simd.wasm"),
-  },
-  {
     from: path.join(repoRoot, "node_modules", "tesseract.js-core", "tesseract-core-simd-lstm.wasm.js"),
     to: path.join(coreRoot, "tesseract-core-simd-lstm.wasm.js"),
   },
   {
     from: path.join(repoRoot, "node_modules", "tesseract.js-core", "tesseract-core-simd-lstm.wasm"),
     to: path.join(coreRoot, "tesseract-core-simd-lstm.wasm"),
-  },
-  {
-    from: path.join(repoRoot, "node_modules", "tesseract.js-core", "tesseract-core-relaxedsimd.wasm.js"),
-    to: path.join(coreRoot, "tesseract-core-relaxedsimd.wasm.js"),
-  },
-  {
-    from: path.join(repoRoot, "node_modules", "tesseract.js-core", "tesseract-core-relaxedsimd.wasm"),
-    to: path.join(coreRoot, "tesseract-core-relaxedsimd.wasm"),
   },
   {
     from: path.join(repoRoot, "node_modules", "tesseract.js-core", "tesseract-core-relaxedsimd-lstm.wasm.js"),

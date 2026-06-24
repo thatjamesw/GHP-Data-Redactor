@@ -37,13 +37,20 @@ jobs:
       - name: Vendor browser dependencies
         run: npm run vendor:browser-deps
 
+      - name: Prepare Pages artifact
+        run: |
+          rm -rf dist
+          mkdir -p dist
+          cp index.html .nojekyll dist/
+          cp -R static dist/static
+
       - name: Setup Pages
         uses: actions/configure-pages@v6
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: .
+          path: dist
           include-hidden-files: true
 
       - name: Deploy to GitHub Pages
