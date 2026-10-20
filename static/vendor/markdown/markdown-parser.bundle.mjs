@@ -254,6 +254,104 @@ function initializeContent(effects) {
   }
 }
 
+// node_modules/micromark-util-edit-map/index.js
+var EditMap = class {
+  /**
+   * Create a new edit map.
+   *
+   * @returns
+   *   New instance.
+   */
+  constructor() {
+    this.index = /* @__PURE__ */ new Map();
+    this.map = [];
+  }
+  /**
+   * Create an edit: a remove and/or add at a certain place.
+   *
+   * @param {number} index
+   *   Index at which to apply the edit.
+   * @param {number} remove
+   *   Count of items to remove at the index.
+   * @param {Array<Event>} add
+   *   Items to add at the index.
+   * @returns {undefined}
+   *   Nothing.
+   */
+  add(index2, remove, add) {
+    addImplementation(this, index2, remove, add, false);
+  }
+  /**
+   * Create an edit: but insert `add` before existing additions, instead of
+   * after them.
+   *
+   * @param {number} index
+   *   Index at which to apply the edit.
+   * @param {number} remove
+   *   Count of items to remove at the index.
+   * @param {Array<Event>} add
+   *   Items to add at the index.
+   * @returns {undefined}
+   *   Nothing.
+   */
+  addBefore(index2, remove, add) {
+    addImplementation(this, index2, remove, add, true);
+  }
+  /**
+   * Done, change the events.
+   *
+   * @param {Array<Event>} events
+   *   List of events to apply the edits to.
+   * @returns {undefined}
+   *   Nothing.
+   */
+  consume(events) {
+    this.map.sort(function(a, b) {
+      return a[0] - b[0];
+    });
+    if (this.map.length === 0) {
+      return;
+    }
+    let index2 = this.map.length;
+    const vecs = [];
+    while (index2 > 0) {
+      index2 -= 1;
+      vecs.push(events.slice(this.map[index2][0] + this.map[index2][1]), this.map[index2][2]);
+      events.length = this.map[index2][0];
+    }
+    vecs.push(events.slice());
+    events.length = 0;
+    let slice = vecs.pop();
+    while (slice) {
+      for (const element2 of slice) {
+        events.push(element2);
+      }
+      slice = vecs.pop();
+    }
+    this.map.length = 0;
+    this.index.clear();
+  }
+};
+function addImplementation(editMap, at, remove, add, before) {
+  if (remove === 0 && add.length === 0) {
+    return;
+  }
+  const existing = editMap.index.get(at);
+  if (existing) {
+    existing[1] += remove;
+    if (before) {
+      add.push(...existing[2]);
+      existing[2] = add;
+    } else {
+      existing[2].push(...add);
+    }
+    return;
+  }
+  const change = [at, remove, add];
+  editMap.map.push(change);
+  editMap.index.set(at, change);
+}
+
 // node_modules/micromark/lib/initialize/document.js
 var document2 = {
   tokenize: initializeDocument
@@ -301,8 +399,10 @@ function initializeDocument(effects) {
         };
         index2++;
       }
-      splice(self.events, indexBeforeFlow + 1, 0, self.events.slice(indexBeforeExits));
-      self.events.length = index2;
+      const editMap = new EditMap();
+      editMap.add(indexBeforeFlow + 1, 0, self.events.slice(indexBeforeExits));
+      editMap.add(indexBeforeExits, index2 - indexBeforeExits, []);
+      editMap.consume(self.events);
       return checkNewContainers(code);
     }
     return start(code);
@@ -321,7 +421,9 @@ function initializeDocument(effects) {
     return effects.check(containerConstruct, thereIsANewContainer, thereIsNoNewContainer)(code);
   }
   function thereIsANewContainer(code) {
-    if (childFlow) closeFlow();
+    if (childFlow) {
+      closeFlow();
+    }
     exitContainers(continued);
     return documentContinued(code);
   }
@@ -341,7 +443,9 @@ function initializeDocument(effects) {
   }
   function flowStart(code) {
     if (code === null) {
-      if (childFlow) closeFlow();
+      if (childFlow) {
+        closeFlow();
+      }
       exitContainers(0);
       effects.consume(code);
       return;
@@ -373,9 +477,13 @@ function initializeDocument(effects) {
   }
   function writeToChild(token, endOfFile) {
     const stream = self.sliceStream(token);
-    if (endOfFile) stream.push(null);
+    if (endOfFile) {
+      stream.push(null);
+    }
     token.previous = childToken;
-    if (childToken) childToken.next = token;
+    if (childToken) {
+      childToken.next = token;
+    }
     childToken = token;
     childFlow.defineSkip(token.start);
     childFlow.write(stream);
@@ -412,8 +520,10 @@ function initializeDocument(effects) {
         };
         index2++;
       }
-      splice(self.events, indexBeforeFlow + 1, 0, self.events.slice(indexBeforeExits));
-      self.events.length = index2;
+      const editMap = new EditMap();
+      editMap.add(indexBeforeFlow + 1, 0, self.events.slice(indexBeforeExits));
+      editMap.add(indexBeforeExits, index2 - indexBeforeExits, []);
+      editMap.consume(self.events);
     }
   }
   function exitContainers(size) {
@@ -3490,6 +3600,7 @@ function createResolver(extraResolver) {
   }
 }
 function resolveAllLineSuffixes(events, context) {
+  const editMap = new EditMap();
   let eventIndex = 0;
   while (++eventIndex <= events.length) {
     if ((eventIndex === events.length || events[eventIndex][1].type === "lineEnding") && events[eventIndex - 1][1].type === "data") {
@@ -3507,7 +3618,9 @@ function resolveAllLineSuffixes(events, context) {
             size++;
             bufferIndex--;
           }
-          if (bufferIndex) break;
+          if (bufferIndex) {
+            break;
+          }
           bufferIndex = -1;
         } else if (chunk === -2) {
           tabs = true;
@@ -3541,13 +3654,13 @@ function resolveAllLineSuffixes(events, context) {
         if (data.start.offset === data.end.offset) {
           Object.assign(data, token);
         } else {
-          events.splice(eventIndex, 0, ["enter", token, context], ["exit", token, context]);
-          eventIndex += 2;
+          editMap.add(eventIndex, 0, [["enter", token, context], ["exit", token, context]]);
         }
       }
       eventIndex++;
     }
   }
+  editMap.consume(events);
   return events;
 }
 
@@ -3705,11 +3818,10 @@ function createTokenizer(parser, initialize, from) {
     accountForPotentialSkip();
   }
   function main() {
-    let chunkIndex;
     while (point3._index < chunks.length) {
       const chunk = chunks[point3._index];
       if (typeof chunk === "string") {
-        chunkIndex = point3._index;
+        const chunkIndex = point3._index;
         if (point3._bufferIndex < 0) {
           point3._bufferIndex = 0;
         }
@@ -3917,30 +4029,34 @@ function serializeChunks(chunks, expandTabs) {
     let value;
     if (typeof chunk === "string") {
       value = chunk;
-    } else switch (chunk) {
-      case -5: {
-        value = "\r";
-        break;
-      }
-      case -4: {
-        value = "\n";
-        break;
-      }
-      case -3: {
-        value = "\r\n";
-        break;
-      }
-      case -2: {
-        value = expandTabs ? " " : "	";
-        break;
-      }
-      case -1: {
-        if (!expandTabs && atTab) continue;
-        value = " ";
-        break;
-      }
-      default: {
-        value = String.fromCharCode(chunk);
+    } else {
+      switch (chunk) {
+        case -5: {
+          value = "\r";
+          break;
+        }
+        case -4: {
+          value = "\n";
+          break;
+        }
+        case -3: {
+          value = "\r\n";
+          break;
+        }
+        case -2: {
+          value = expandTabs ? " " : "	";
+          break;
+        }
+        case -1: {
+          if (!expandTabs && atTab) {
+            continue;
+          }
+          value = " ";
+          break;
+        }
+        default: {
+          value = String.fromCharCode(chunk);
+        }
       }
     }
     atTab = chunk === -2;
@@ -3991,14 +4107,9 @@ function preprocess() {
   let atCarriageReturn;
   return preprocessor;
   function preprocessor(value, encoding, end) {
-    const chunks = [];
-    let match;
-    let next;
-    let startPosition;
-    let endPosition;
-    let code;
     value = buffer + (typeof value === "string" ? value.toString() : new TextDecoder(encoding || void 0).decode(value));
-    startPosition = 0;
+    const chunks = [];
+    let startPosition = 0;
     buffer = "";
     if (start) {
       if (value.charCodeAt(0) === 65279) {
@@ -4008,9 +4119,9 @@ function preprocess() {
     }
     while (startPosition < value.length) {
       search.lastIndex = startPosition;
-      match = search.exec(value);
-      endPosition = match && match.index !== void 0 ? match.index : value.length;
-      code = value.charCodeAt(endPosition);
+      const match = search.exec(value);
+      const endPosition = match && match.index !== void 0 ? match.index : value.length;
+      const code = value.charCodeAt(endPosition);
       if (!match) {
         buffer = value.slice(startPosition);
         break;
@@ -4034,9 +4145,11 @@ function preprocess() {
             break;
           }
           case 9: {
-            next = Math.ceil(column / 4) * 4;
+            const next = Math.ceil(column / 4) * 4;
             chunks.push(-2);
-            while (column++ < next) chunks.push(-1);
+            while (column++ < next) {
+              chunks.push(-1);
+            }
             break;
           }
           case 10: {
@@ -4053,8 +4166,12 @@ function preprocess() {
       startPosition = endPosition + 1;
     }
     if (end) {
-      if (atCarriageReturn) chunks.push(-5);
-      if (buffer) chunks.push(buffer);
+      if (atCarriageReturn) {
+        chunks.push(-5);
+      }
+      if (buffer) {
+        chunks.push(buffer);
+      }
       chunks.push(null);
     }
     return chunks;
@@ -4879,23 +4996,28 @@ function replace($0, $1) {
 }
 
 // node_modules/micromark-extension-gfm-table/lib/edit-map.js
-var EditMap = class {
+var EditMap2 = class {
   /**
    * Create a new edit map.
    */
   constructor() {
     this.map = [];
+    this.index = /* @__PURE__ */ new Map();
   }
   /**
    * Create an edit: a remove and/or add at a certain place.
    *
    * @param {number} index
+   *   Index at which to apply the edit.
    * @param {number} remove
+   *   Count of items to remove at the index.
    * @param {Array<Event>} add
+   *   Items to add at the index.
    * @returns {undefined}
+   *   Nothing.
    */
   add(index2, remove, add) {
-    addImplementation(this, index2, remove, add);
+    addImplementation2(this, index2, remove, add);
   }
   // To do: add this when moving to `micromark`.
   // /**
@@ -4913,7 +5035,9 @@ var EditMap = class {
    * Done, change the events.
    *
    * @param {Array<Event>} events
+   *   List of events to apply the edits to.
    * @returns {undefined}
+   *   Nothing.
    */
   consume(events) {
     this.map.sort(function(a, b) {
@@ -4939,22 +5063,22 @@ var EditMap = class {
       slice = vecs.pop();
     }
     this.map.length = 0;
+    this.index.clear();
   }
 };
-function addImplementation(editMap, at, remove, add) {
-  let index2 = 0;
+function addImplementation2(editMap, at, remove, add) {
   if (remove === 0 && add.length === 0) {
     return;
   }
-  while (index2 < editMap.map.length) {
-    if (editMap.map[index2][0] === at) {
-      editMap.map[index2][1] += remove;
-      editMap.map[index2][2].push(...add);
-      return;
-    }
-    index2 += 1;
+  const existing = editMap.index.get(at);
+  if (existing) {
+    existing[1] += remove;
+    existing[2].push(...add);
+    return;
   }
-  editMap.map.push([at, remove, add]);
+  const change = [at, remove, add];
+  editMap.map.push(change);
+  editMap.index.set(at, change);
 }
 
 // node_modules/micromark-extension-gfm-table/lib/infer.js
@@ -5005,10 +5129,15 @@ function tokenizeTable(effects, ok2, nok) {
   function start(code) {
     let index2 = self.events.length - 1;
     while (index2 > -1) {
-      const type = self.events[index2][1].type;
+      const {
+        type
+      } = self.events[index2][1];
       if (type === "lineEnding" || // Note: markdown-rs uses `whitespace` instead of `linePrefix`
-      type === "linePrefix") index2--;
-      else break;
+      type === "linePrefix") {
+        index2--;
+      } else {
+        break;
+      }
     }
     const tail = index2 > -1 ? self.events[index2][1].type : null;
     const next = tail === "tableHead" || tail === "tableRow" ? bodyRowStart : headRowBefore;
@@ -5222,7 +5351,7 @@ function resolveTable(events, context) {
   let currentTable;
   let currentBody;
   let currentCell;
-  const map = new EditMap();
+  const map = new EditMap2();
   while (++index2 < events.length) {
     const event = events[index2];
     const token = event[1];
