@@ -7,6 +7,7 @@ Browser-based redaction tool for cleaning sensitive data before sharing it with 
 - Scans pasted text or uploaded text-based files locally in the browser
 - Flags likely PII and secrets such as emails, phone numbers, SSNs, tax IDs, passport-like IDs, driver's-license-like IDs, IPs, MAC addresses, VINs, street addresses, UUIDs, API keys, JWTs, and credit card numbers
 - Uses identity-aware scanning for names, places, and organisations, including case-insensitive and light leetspeak variants once a confident seed has been found
+- Offers an opt-in `Deep scan` that runs a local AI model (OpenAI Privacy Filter) in your browser to catch names, addresses, dates, and account numbers in ordinary sentences
 - Lets you review findings before applying them
 - Supports both `redact` and `pseudonymise` output modes
 - Includes a one-click `LLM-safe copy` workflow
@@ -32,6 +33,13 @@ Browser-based redaction tool for cleaning sensitive data before sharing it with 
 
 This means the default GitHub Pages deployment is designed to avoid outbound network requests during both text and OCR workflows.
 
+The one exception is the opt-in `Deep scan`:
+
+- When enabled, the browser downloads the model weights (~840 MB, `openai/privacy-filter` pinned to a fixed revision) from Hugging Face once. The Content Security Policy allows `huggingface.co` and `*.hf.co` for this download only
+- Only model files are fetched. Your text is never sent anywhere, and the model runtime (`transformers.js` and the ONNX WebAssembly runtime) is served from this repo
+- The browser caches the model weights so later visits skip the download. No pasted data is cached, and `Secure wipe` also stops the model worker
+- Deep scan needs WebGPU (current Chrome, Edge, or Safari). The option is disabled in other browsers
+
 ## Dependency Updates
 
 The repository now includes:
@@ -39,7 +47,7 @@ The repository now includes:
 - `package.json` for managed OCR dependency tracking
 - `.github/dependabot.yml` for weekly updates to both npm dependencies and GitHub Actions
 
-For browser parsing specifically, Dependabot can keep `tesseract.js`, `@tesseract.js-data/eng`, `exceljs`, `pdfjs-dist`, and `pdf-lib` current. That is much safer and more maintainable than hardcoding third-party CDN scripts in the page.
+For browser parsing specifically, Dependabot can keep `tesseract.js`, `@tesseract.js-data/eng`, `exceljs`, `pdfjs-dist`, `pdf-lib`, and `@huggingface/transformers` current. That is much safer and more maintainable than hardcoding third-party CDN scripts in the page.
 It can also keep `mammoth` current for local DOCX text extraction.
 
 ## Supported Inputs

@@ -1,4 +1,5 @@
 import { benchmarkCorpus } from "./core/benchmark-data.js";
+import { deepScanEntities, deepScanSupported, shutdownDeepScan } from "./core/deep-scan.js";
 import { shutdownImageWorker } from "./core/formats/image.js";
 import { findingsForDisplay, prepareDocument, redactDocument, scanDocument, scanTextValue } from "./redactor-core.js";
 
@@ -12,6 +13,8 @@ const imageModeSelect = document.querySelector("#image-mode-select");
 const filterSearch = document.querySelector("#filter-search");
 const strictEmail = document.querySelector("#strict-email");
 const detectNames = document.querySelector("#detect-names");
+const deepScan = document.querySelector("#deep-scan");
+const deepScanDownloads = new Map();
 const detectFaces = document.querySelector("#detect-faces");
 const categoryToggles = [...document.querySelectorAll(".category-toggle")];
 const findingsEl = document.querySelector("#findings");
@@ -128,6 +131,16 @@ function renderSummary(summary = { total: 0, high: 0, medium: 0 }) {
   metricTotal.textContent = String(summary.total || 0);
   metricHigh.textContent = String(summary.high || 0);
   metricMedium.textContent = String(summary.medium || 0);
+}
+
+function reportDeepScanProgress(progress) {
+  if (progress.status !== "progress" || !progress.total) return;
+  deepScanDownloads.set(progress.file, progress);
+  const downloads = [...deepScanDownloads.values()];
+  const megabytes = (bytes) => Math.round(bytes / 1e6);
+  const loaded = megabytes(downloads.reduce((sum, item) => sum + item.loaded, 0));
+  const total = megabytes(downloads.reduce((sum, item) => sum + item.total, 0));
+  setStatus(inputStatus, `Deep scan: downloading the model once (${loaded} of ${total} MB). Your text stays in this browser.`, "warn");
 }
 
 function setsEqual(left, right) {
@@ -376,6 +389,7 @@ async function secureSessionWipe() {
   clearButton.disabled = true;
   setStatus(inputStatus, "Secure wipe in progress. Clearing previews, buffers, and local worker state.", "warn");
   await shutdownImageWorker();
+  shutdownDeepScan();
   wipeOutputState(outputState);
   wipeScanState(scanState);
   wipeFileState(fileState);
@@ -821,6 +835,12 @@ async function runScan({ preserveReviewedSelection = false } = {}) {
     setStatus(inputStatus, "Rendering and scanning PDF pages locally in your browser.", "warn");
   }
   scanState = await scanDocument(documentModel, options);
+  if (deepScan.checked && scanState.preview) {
+    setStatus(inputStatus, "Deep scan: running the AI model locally in your browser.", "warn");
+    options.modelEntities = await deepScanEntities(scanState.preview, reportDeepScanProgress);
+    // ponytail: rescans the whole document (images re-run OCR); pass OCR results through if that gets slow
+    if (options.modelEntities.length) scanState = await scanDocument(documentModel, options);
+  }
   if (preserveReviewedSelection && previousScan) {
     restoreReviewedSelection(previousScan, previousSelected, previousRecommended);
     renderFindings();
@@ -833,7 +853,7 @@ async function runScan({ preserveReviewedSelection = false } = {}) {
   renderFormatNote(scanState.formatInfo, formatNote);
   await refreshOutputFromSelection();
 
-  let scanMessage = `Scan complete. ${scanState.summary.total} findings detected locally in your browser.`;
+  let scanMessage = `Scan complete. ${scanState.summary.total} findings detected locally in your browser${deepScan.checked ? " with deep scan" : ""}.`;
   let scanType = "success";
 
   if (scanState.autoDetection?.source === "fallback") {
@@ -1082,6 +1102,13 @@ strictEmail.addEventListener("change", () => {
 detectNames.addEventListener("change", () => {
   markConfigurationDirty("Identity detection");
 });
+deepScan.addEventListener("change", () => {
+  markConfigurationDirty("Deep scan");
+});
+if (!deepScanSupported) {
+  deepScan.disabled = true;
+  document.querySelector("#deep-scan-note").textContent = "Needs a browser with WebGPU, such as current Chrome, Edge, or Safari.";
+}
 detectFaces.addEventListener("change", () => {
   markConfigurationDirty("Face detection");
 });

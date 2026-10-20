@@ -14,6 +14,7 @@ function optionsFor(testCase) {
   return {
     strictEmail: testCase.options?.strictEmail ?? true,
     detectNames: testCase.options?.detectNames ?? true,
+    modelEntities: testCase.options?.modelEntities,
     detectFaces: false,
     aggressiveImageDocs: false,
     imageMode: "standard",

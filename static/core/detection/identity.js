@@ -7,7 +7,7 @@ const LABELLED_VALUE_PATTERN = /\b[\p{Script=Latin}\p{M}][\p{Script=Latin}\p{M}0
 const CONTACT_SEGMENT_NAME = /^[\p{Script=Latin}\p{M}][\p{Script=Latin}\p{M}.'\u2019-]{1,}(?:\s+[\p{Script=Latin}\p{M}][\p{Script=Latin}\p{M}.'\u2019-]{1,}){1,2}$/u;
 const CONTACT_SEGMENT_PLACE = /^[\p{Script=Latin}\p{M}][\p{Script=Latin}\p{M}.'\u2019-]{1,}(?:\s+[\p{Script=Latin}\p{M}][\p{Script=Latin}\p{M}.'\u2019-]{1,}){0,2}$/u;
 const EMAIL_LOOSE = /\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,63}\b/g;
-const IDENTITY_CANDIDATE = /\b[\p{Script=Latin}\p{M}0-9@$][\p{Script=Latin}\p{M}0-9@$.'\u2019-]{1,}(?:\s+[\p{Script=Latin}\p{M}0-9@$][\p{Script=Latin}\p{M}0-9@$.'\u2019-]{1,}){0,2}\b/gu;
+const IDENTITY_WORD = /[\p{Script=Latin}\p{M}0-9@$][\p{Script=Latin}\p{M}0-9@$.'\u2019-]*[\p{Script=Latin}\p{M}0-9@$]/gu;
 const STANDALONE_NAME_LINE = /^[\p{Script=Latin}\p{M}][\p{Script=Latin}\p{M}.'\u2019-]{1,}(?:\s+[\p{Script=Latin}\p{M}][\p{Script=Latin}\p{M}.'\u2019-]{1,}){1,2}$/u;
 const PROPER_NAME_TOKEN = /^[\p{Lu}][\p{Ll}\p{M}.'\u2019-]+$/u;
 const NON_NAME_LINE_HINTS = /^(?:project manager|manager|owner|service owner|customer primary|customer secondary|incident response|runbook|rollback|support team|security team|engineering team)$/i;
@@ -192,17 +192,21 @@ function propagateIdentitySeeds(content, findings, context, externalSeeds = []) 
 
   if (!seeds.length) return;
 
-  IDENTITY_CANDIDATE.lastIndex = 0;
-  let match;
-  while ((match = IDENTITY_CANDIDATE.exec(content)) !== null) {
-    const original = match[0];
-    const normalizedTokens = identityTokens(original);
-    if (!normalizedTokens.length) continue;
-    for (const seed of seeds) {
-      if (!sameIdentityTokens(seed.tokens, normalizedTokens)) continue;
-      const alreadyCovered = findings.some((item) => item.label === seed.label && item.start === match.index && item.end === match.index + original.length);
-      if (alreadyCovered) break;
-      addFinding(findings, seed.label, 0.68, match.index, match.index + original.length, original, ["identity_seed_match"], context);
+  // Try every run of 1-3 whitespace-separated words, longest first, so names inside sentences match too.
+  const words = [...content.matchAll(IDENTITY_WORD)];
+  for (let index = 0; index < words.length; index += 1) {
+    for (let size = Math.min(3, words.length - index); size >= 1; size -= 1) {
+      const window = words.slice(index, index + size);
+      if (window.some((word, offset) => offset > 0 && !/^\s+$/.test(content.slice(window[offset - 1].index + window[offset - 1][0].length, word.index)))) continue;
+      const start = window[0].index;
+      const end = window.at(-1).index + window.at(-1)[0].length;
+      const original = content.slice(start, end);
+      const seed = seeds.find((item) => sameIdentityTokens(item.tokens, identityTokens(original)));
+      if (!seed) continue;
+      if (!findings.some((item) => item.label === seed.label && item.start === start && item.end === end)) {
+        addFinding(findings, seed.label, 0.68, start, end, original, ["identity_seed_match"], context);
+      }
+      index += size - 1;
       break;
     }
   }
