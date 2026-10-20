@@ -353,8 +353,8 @@
       "totti.brunila@proliitto.fi"
     ],
     "expectPresent": [
-      "| Customer primary | [REDACTED] | CTO | [REDACTED] | +[REDACTED] | - |",
-      "| Customer secondary | [REDACTED] | IT | [REDACTED] | +[REDACTED] | - |",
+      "| Customer primary | [REDACTED] | CTO | [REDACTED] | [REDACTED] | - |",
+      "| Customer secondary | [REDACTED] | IT | [REDACTED] | [REDACTED] | - |",
       "| Service Owner | [REDACTED] | [REDACTED] | Project Manager | - | - |"
     ],
     "minFindings": 8
@@ -427,5 +427,41 @@
     ],
     "minFindings": 2,
     "maxFindings": 2
+  },
+  {
+    "name": "markdown tables inside blockquotes and list items are scanned",
+    "threshold": "high",
+    "fileName": "notes.md",
+    "input": "> | Owner | Contact |\n> |---|---|\n> | Tom Smith | tom@x.io |\n\n1. | Name | Phone |\n   |---|---|\n   | Lars Øvergaard | +358 40 123 4567 |\n",
+    "expectAbsent": [
+      "Tom Smith",
+      "tom@x.io",
+      "Lars Øvergaard",
+      "358 40 123 4567"
+    ],
+    "expectPresent": [
+      "> | [REDACTED] | [REDACTED] |",
+      "   | [REDACTED] | [REDACTED] |"
+    ]
+  },
+  {
+    "name": "international and bracketed phone numbers are redacted whole",
+    "threshold": "high",
+    "input": "Call +358 40 123 4567 or (020) 7946 0958 today.\n",
+    "expectPresent": [
+      "Call [REDACTED] or [REDACTED] today."
+    ]
+  },
+  {
+    "name": "sentence-case lines are not treated as names",
+    "threshold": "high",
+    "input": "Lars Øvergaard\n\nAfter table\n\nMaria Anders\n",
+    "expectPresent": [
+      "After table"
+    ],
+    "expectAbsent": [
+      "Lars Øvergaard",
+      "Maria Anders"
+    ]
   }
 ]

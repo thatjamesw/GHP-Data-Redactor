@@ -12,6 +12,8 @@ const DESCRIPTOR_HEADERS = new Set([
 
 const TABLE_DELIMITER_ROW = /^\s*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*$/;
 const CODE_FENCE = /^\s{0,3}(?:```|~~~)/;
+// Blockquote markers and list markers in front of a table row: "> | a |", "> > | a |", "1. | a |", "- > | a |".
+const CONTAINER_PREFIX = /^(?:[ \t]*(?:>[ \t]?|(?:[-*+]|\d{1,9}[.)])[ \t]+(?=[|>])))*/;
 
 // Cell text as a markdown renderer would show it: links reduced to their text, emphasis and code ticks dropped.
 function inlinePlainText(raw) {
@@ -47,12 +49,13 @@ function tableRowCells(line, lineStart) {
 }
 
 // GFM tables: a header row, a matching delimiter row, then rows until a blank line.
-// ponytail: tables nested in blockquotes or list items are not recognised
+// Tables inside blockquotes and list items are read with their container markers stripped.
 function markdownTables(source) {
   const lines = [];
   let offset = 0;
   for (const text of source.split("\n")) {
-    lines.push({ text: text.replace(/\r$/, ""), start: offset });
+    const prefix = text.match(CONTAINER_PREFIX)[0].length;
+    lines.push({ text: text.slice(prefix).replace(/\r$/, ""), start: offset + prefix });
     offset += text.length + 1;
   }
 

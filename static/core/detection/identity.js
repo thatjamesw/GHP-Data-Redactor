@@ -10,6 +10,8 @@ const EMAIL_LOOSE = /\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,63}\b/g;
 const IDENTITY_WORD = /[\p{Script=Latin}\p{M}0-9@$][\p{Script=Latin}\p{M}0-9@$.'\u2019-]*[\p{Script=Latin}\p{M}0-9@$]/gu;
 const STANDALONE_NAME_LINE = /^[\p{Script=Latin}\p{M}][\p{Script=Latin}\p{M}.'\u2019-]{1,}(?:\s+[\p{Script=Latin}\p{M}][\p{Script=Latin}\p{M}.'\u2019-]{1,}){1,2}$/u;
 const PROPER_NAME_TOKEN = /^[\p{Lu}][\p{Ll}\p{M}.'\u2019-]+$/u;
+// "After table", "Project plan": capitalised first word, lowercase last word reads as prose, not a name.
+const SENTENCE_CASE_LINE = /^\p{Lu}\S*(?:\s+\S+)*\s+\p{Ll}\S*$/u;
 const NON_NAME_LINE_HINTS = /^(?:project manager|manager|owner|service owner|customer primary|customer secondary|incident response|runbook|rollback|support team|security team|engineering team)$/i;
 const NON_NAME_TOKENS = new Set([
   "and", "or", "the", "for", "with", "from", "into", "onto", "over", "under",
@@ -89,7 +91,7 @@ function addContactLineIdentityFindings(content, findings, context) {
 function lineNameCandidate(line, lineStart) {
   const trimmed = line.trim();
   if (!trimmed || trimmed.includes(",") || trimmed.includes("@") || /\d/.test(trimmed)) return null;
-  if (NON_NAME_LINE_HINTS.test(trimmed)) return null;
+  if (NON_NAME_LINE_HINTS.test(trimmed) || SENTENCE_CASE_LINE.test(trimmed)) return null;
 
   const rawTokens = trimmed.split(/\s+/);
   const tokens = rawTokens.map((token) => token.toLowerCase());

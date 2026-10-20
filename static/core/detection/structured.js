@@ -24,7 +24,8 @@ const PASSPORT_GENERIC = /\b[A-Z0-9]{6,9}\b/g;
 const MRZ_PASSPORT_NUMBER = /\b[A-Z][0-9]{6,8}\b/g;
 const MRZ_LINE = /\bP<[A-Z<]{10,}|\b[A-Z0-9<]{20,}\b/g;
 const DRIVERS_LICENSE_GENERIC = /\b[A-Z]{1,2}\d{6,8}\b/g;
-const PHONE = /\b(?:\+?\d{1,3}[\s.-]?)?(?:\(?\d{2,4}\)?[\s.-]?)\d{3,4}[\s.-]?\d{3,4}\b/g;
+// A leading + or ( sits before the \b word boundary, so each gets its own start alternative.
+const PHONE = /(?:(?<![+\d])\+\d{1,3}[\s.-]?|(?<!\()(?=\()|\b(?:\d{1,3}[\s.-]?)?)(?:\(?\d{2,4}\)?[\s.-]?)\d{3,4}[\s.-]?\d{3,4}\b/g;
 const DATE_LIKE = /\b(?:\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|\d{4}[./-]\d{1,2}[./-]\d{1,2})\b/;
 const PASSPORT_DISALLOWED = /^(?:true|false|null)$/i;
 const VIN_DISALLOWED = /[IOQ]/;
