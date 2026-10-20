@@ -11,6 +11,9 @@ const LABELS = {
   private_url: "URL",
   secret: "POTENTIAL_SECRET",
 };
+// The model sometimes runs an address on into the next words ("12 Elm Road, Leeds and cc"),
+// so trailing filler words are trimmed off address spans.
+const TRAILING_FILLER = /(?:[\s,;]+(?:and|or|then|cc|bcc|via|please|thanks))+[\s,;]*$/i;
 // ponytail: fixed-size line chunks keep WebGPU memory bounded; a name split across a chunk edge can be missed
 const CHUNK_CHARS = 4000;
 
@@ -52,18 +55,24 @@ function ensureWorker(onProgress) {
   return worker;
 }
 
+export function entitiesFromSpans(spans) {
+  const seen = new Set();
+  return spans
+    .map((span) => {
+      const label = LABELS[span.entity_group];
+      const text = span.word.trim();
+      return { label, text: label === "STREET_ADDRESS" ? text.replace(TRAILING_FILLER, "") : text, score: span.score };
+    })
+    .filter((entity) => entity.label && entity.text.length > 1 && !seen.has(`${entity.label}:${entity.text}`) && seen.add(`${entity.label}:${entity.text}`));
+}
+
 export async function deepScanEntities(text, onProgress) {
   if (text === lastText) return lastEntities;
   const id = nextId++;
   const { promise, resolve, reject } = Promise.withResolvers();
   pending.set(id, { resolve, reject });
   ensureWorker(onProgress).postMessage({ id, chunks: chunk(text) });
-  const spans = await promise;
-
-  const seen = new Set();
-  lastEntities = spans
-    .map((span) => ({ label: LABELS[span.entity_group], text: span.word.trim(), score: span.score }))
-    .filter((entity) => entity.label && entity.text.length > 1 && !seen.has(`${entity.label}:${entity.text}`) && seen.add(`${entity.label}:${entity.text}`));
+  lastEntities = entitiesFromSpans(await promise);
   lastText = text;
   return lastEntities;
 }

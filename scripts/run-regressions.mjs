@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import ExcelJS from "exceljs";
 
 import { applyTextReplacements, prepareDocument, redactDocument, scanDocument } from "../static/redactor-core.js";
+import { entitiesFromSpans } from "../static/core/deep-scan.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
@@ -183,6 +184,19 @@ async function runGeneratedCases() {
   return results;
 }
 
+function runDeepScanMappingCases() {
+  const entities = entitiesFromSpans([
+    { entity_group: "private_address", word: " 12 Elm Road, Leeds and cc", score: 0.8 },
+    { entity_group: "private_address", word: " Flat 4, 22 Queen St, Glasgow G1 3DX", score: 0.9 },
+    { entity_group: "private_person", word: " Mark", score: 0.99 },
+    { entity_group: "private_person", word: " Mark", score: 0.99 },
+    { entity_group: "unknown_label", word: " ignored", score: 0.99 },
+  ]);
+  const actual = JSON.stringify(entities.map(({ label, text }) => [label, text]));
+  const expected = JSON.stringify([["STREET_ADDRESS", "12 Elm Road, Leeds"], ["STREET_ADDRESS", "Flat 4, 22 Queen St, Glasgow G1 3DX"], ["PERSON", "Mark"]]);
+  return [{ name: "deep scan trims trailing filler off addresses and dedupes entities", failures: actual === expected ? [] : [`expected ${expected}, got ${actual}`] }];
+}
+
 function runReplacementCases() {
   const overlapOutput = applyTextReplacements("name: James Wright", [
     { id: "short", label: "PERSON", confidence: 0.63, start: 6, end: 11, original: "James", reasoning: [] },
@@ -202,6 +216,7 @@ for (const testCase of cases) {
 }
 results.push(...(await runGeneratedCases()));
 results.push(...runReplacementCases());
+results.push(...runDeepScanMappingCases());
 
 const failed = results.filter((result) => result.failures.length > 0);
 for (const result of results) {
