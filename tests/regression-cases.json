@@ -463,5 +463,37 @@
       "Lars Øvergaard",
       "Maria Anders"
     ]
+  },
+  {
+    "name": "known token prefixes are redacted whole at high confidence",
+    "threshold": "high",
+    "input": "gh token ghp_abcdEFGHijklMNOPqrstUVWX123456 and slack xoxb-1234567890-abcdefghij\nkeep ghost_writer_service_account_name\n",
+    "expectAbsent": [
+      "ghp_abcdEFGHijklMNOPqrstUVWX123456",
+      "abcdefghij"
+    ],
+    "expectPresent": [
+      "ghost_writer_service_account_name"
+    ]
+  },
+  {
+    "name": "inline BIC and SWIFT labels raise confidence",
+    "threshold": "high",
+    "input": "BIC: NDEAFIHH\nSWIFT code COBADEFFXXX\n",
+    "expectAbsent": [
+      "NDEAFIHH",
+      "COBADEFFXXX"
+    ]
+  },
+  {
+    "name": "numbered street addresses are redacted without the lead-in words",
+    "threshold": "high",
+    "input": "Ship to 221B Baker Street, London\n",
+    "expectPresent": [
+      "Ship to [REDACTED]"
+    ],
+    "expectAbsent": [
+      "Baker Street"
+    ]
   }
 ]

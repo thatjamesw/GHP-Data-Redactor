@@ -12,6 +12,9 @@ const AWS_AKID = /\bAKIA[0-9A-Z]{16}\b/g;
 const JWT = /\beyJ[0-9A-Za-z_\-]+\.[0-9A-Za-z_\-]+\.[0-9A-Za-z_\-]+\b/g;
 const URL = /https?:\/\/[^\s`|<>)]+/g;
 const GENERIC_SECRET = /\b[A-Za-z0-9_\-]{24,}\b/g;
+// Published token prefixes: GitHub, GitLab, Slack, Stripe, Anthropic, OpenAI project keys, Google API, npm, Hugging Face.
+const KNOWN_TOKEN = /\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{22,}|glpat-[A-Za-z0-9_-]{20,}|xox[abposr]-[A-Za-z0-9-]{10,}|[sr]k_(?:live|test)_[A-Za-z0-9]{16,}|sk-ant-[A-Za-z0-9_-]{20,}|sk-proj-[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{35}|npm_[A-Za-z0-9]{36}|hf_[A-Za-z0-9]{30,})/g;
+const INLINE_BIC_LABEL = /\b(?:BIC|SWIFT)(?:[\s/-]*(?:BIC|code))?\s*[:=#]?\s*$/i;
 const CREDIT_CARD = /\b(?:\d[ -]*?){13,19}\b/g;
 const IBAN = /\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]){11,30}\b/gi;
 const BIC = /\b[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}(?:[A-Z0-9]{3})?\b/g;
@@ -104,14 +107,14 @@ export function scanStructuredFindings(content, options = {}, context = {}, find
   if (categoryEnabled(options, "MAC_ADDRESS")) scanMatches(content, MAC_ADDRESS, "MAC_ADDRESS", 0.92, findings, context);
   if (categoryEnabled(options, "POTENTIAL_SECRET")) {
     scanUrlSecrets(content, context, findings);
-    scanMatches(
-      content,
-        GENERIC_SECRET,
-        "POTENTIAL_SECRET",
-        confidenceWithEvidence(0.66, context, "POTENTIAL_SECRET", 0.9),
-        findings,
-        context
-      );
+    scanMatches(content, KNOWN_TOKEN, "POTENTIAL_SECRET", 0.95, findings, context, ["known_token_prefix"]);
+    GENERIC_SECRET.lastIndex = 0;
+    let secretMatch;
+    while ((secretMatch = GENERIC_SECRET.exec(content)) !== null) {
+      const end = secretMatch.index + secretMatch[0].length;
+      if (overlapsFinding(findings, secretMatch.index, end, ["POTENTIAL_SECRET"])) continue;
+      addFinding(findings, "POTENTIAL_SECRET", confidenceWithEvidence(0.66, context, "POTENTIAL_SECRET", 0.9), secretMatch.index, end, secretMatch[0], ["pattern_match"], context);
+    }
   }
   if (categoryEnabled(options, "STREET_ADDRESS")) {
     for (const candidate of addressCandidates(content)) {
@@ -212,8 +215,10 @@ export function scanStructuredFindings(content, options = {}, context = {}, find
     while ((bicMatch = BIC.exec(content)) !== null) {
       const evidence = semanticEvidence(context, "BIC");
       const value = bicMatch[0];
-      if (!evidence.matched && !/\b[A-Z]{4}(?:FI|SE|NO|DE|FR|GB|ES)[A-Z0-9]{2}(?:[A-Z0-9]{3})?\b/.test(value)) continue;
-      addFinding(findings, "BIC", confidenceWithEvidence(0.78, context, "BIC", 0.94), bicMatch.index, bicMatch.index + value.length, value, [evidence.matched ? "bic_shape+context" : "bic_shape"], context);
+      const labelled = INLINE_BIC_LABEL.test(content.slice(content.lastIndexOf("\n", bicMatch.index) + 1, bicMatch.index));
+      if (!evidence.matched && !labelled && !/\b[A-Z]{4}(?:FI|SE|NO|DE|FR|GB|ES)[A-Z0-9]{2}(?:[A-Z0-9]{3})?\b/.test(value)) continue;
+      const confidence = labelled ? 0.94 : confidenceWithEvidence(0.78, context, "BIC", 0.94);
+      addFinding(findings, "BIC", confidence, bicMatch.index, bicMatch.index + value.length, value, [labelled ? "bic_shape+inline_label" : evidence.matched ? "bic_shape+context" : "bic_shape"], context);
     }
   }
 
