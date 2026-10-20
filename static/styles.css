@@ -127,6 +127,23 @@ body{
   gap:12px;
 }
 
+.deep-scan-toggle{
+  display:flex;
+  gap:12px;
+  align-items:flex-start;
+  max-width:640px;
+  margin-top:16px;
+  padding:12px 14px;
+  border:1px solid var(--accent-line);
+  border-radius:14px;
+  background:var(--accent-soft);
+  cursor:pointer;
+}
+.deep-scan-toggle input{margin-top:3px}
+.deep-scan-toggle strong{display:block;color:var(--ink)}
+.deep-scan-toggle small{display:block;margin-top:2px;color:var(--muted-strong);font-size:13px;line-height:1.45}
+.deep-scan-toggle:has(input:disabled){cursor:not-allowed;opacity:.7}
+
 .hero-notes{
   display:flex;
   flex-wrap:wrap;

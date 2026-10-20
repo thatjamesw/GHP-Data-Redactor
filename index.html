@@ -25,6 +25,10 @@
             <button id="scan-button" class="secondary">Scan only</button>
             <button id="apply-button" class="ghost">Refresh output</button>
           </div>
+          <label class="deep-scan-toggle">
+            <input id="deep-scan" type="checkbox" />
+            <span><strong>Deep scan with a local AI model</strong><small id="deep-scan-note">Catches names and addresses inside ordinary sentences. Downloads an ~840 MB model from Hugging Face once; your text never leaves this browser.</small></span>
+          </label>
           <div class="hero-notes" aria-label="Local-only details">
             <span>Runs fully in your browser</span>
             <span>GitHub Pages hosts static files only</span>
@@ -104,7 +108,6 @@
           <div class="scope-list">
             <label class="scope-pill"><input id="strict-email" type="checkbox" checked /><span>Strict email matching</span><small>Prefer full addresses and avoid loose fragments.</small></label>
             <label class="scope-pill"><input id="detect-names" type="checkbox" checked /><span>Names, places, and organisations</span><small>Catch identity signals beyond structured tokens.</small></label>
-            <label class="scope-pill"><input id="deep-scan" type="checkbox" /><span>Deep scan with a local AI model</span><small id="deep-scan-note">Better at names and addresses in ordinary sentences. Downloads an ~840 MB model from Hugging Face once; your text never leaves this browser.</small></label>
             <label class="scope-pill"><input id="detect-faces" type="checkbox" checked /><span>Faces in images</span><small>Use local browser detection with document-photo fallback support.</small></label>
           </div>
         </div>
