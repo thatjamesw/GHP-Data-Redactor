@@ -7,8 +7,7 @@
   "license": "MIT",
   "scripts": {
     "test:regress": "node ./scripts/run-regressions.mjs",
-    "vendor:browser-deps": "node ./scripts/vendor-tesseract.mjs && node ./scripts/vendor-exceljs.mjs && node ./scripts/vendor-pdfjs.mjs && node ./scripts/vendor-pdflib.mjs && node ./scripts/vendor-mammoth.mjs && node ./scripts/vendor-markdown-parser.mjs",
-    "vendor:ocr": "node ./scripts/vendor-tesseract.mjs"
+    "vendor:browser-deps": "node ./scripts/vendor.mjs"
   },
   "dependencies": {
     "@tesseract.js-data/eng": "^1.0.0",

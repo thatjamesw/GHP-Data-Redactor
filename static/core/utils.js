@@ -149,3 +149,24 @@ export function dedupeFindings(findings) {
     return true;
   });
 }
+
+// Loads a vendored browser bundle once and returns the global it defines.
+export async function loadVendorScript(src, globalName, isReady) {
+  if (isReady(globalThis[globalName])) return globalThis[globalName];
+  let script = document.querySelector(`script[src="${src}"]`);
+  if (!script) {
+    script = document.createElement("script");
+    script.src = src;
+    script.async = true;
+    document.head.appendChild(script);
+  }
+  await new Promise((resolve, reject) => {
+    script.addEventListener("load", resolve, { once: true });
+    script.addEventListener("error", () => {
+      script.remove();
+      reject(new Error(`Local ${globalName} bundle not found at ${src}.`));
+    }, { once: true });
+  });
+  if (!isReady(globalThis[globalName])) throw new Error(`Local ${globalName} bundle is missing or incomplete.`);
+  return globalThis[globalName];
+}

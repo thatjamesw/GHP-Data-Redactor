@@ -1,5 +1,5 @@
 import { applyTextReplacements } from "../replacements.js";
-import { annotateFindings, summarise } from "../utils.js";
+import { annotateFindings, loadVendorScript, summarise } from "../utils.js";
 import { scanTextValue } from "../detectors.js";
 
 const PDF_SCRIPT_URL = new URL("../../vendor/pdfjs/pdf.min.mjs", import.meta.url);
@@ -9,10 +9,6 @@ const PDFLIB_SCRIPT_PATH = "./static/vendor/pdflib/pdf-lib.min.js";
 
 let pdfPromise = null;
 let pdfLibPromise = null;
-
-function cloneArrayBuffer(buffer) {
-  return buffer.slice(0);
-}
 
 async function ensurePdfJs() {
   if (pdfPromise) return pdfPromise;
@@ -30,32 +26,9 @@ async function ensurePdfJs() {
 
 async function ensurePdfLib() {
   if (pdfLibPromise) return pdfLibPromise;
-  pdfLibPromise = (async () => {
-    if (typeof document === "undefined") return import("pdf-lib");
-    if (globalThis.PDFLib?.PDFDocument) return globalThis.PDFLib;
-
-    const prior = document.querySelector(`script[data-vendor-bundle="pdflib"]`);
-    if (prior) {
-      await new Promise((resolve) => {
-        if (globalThis.PDFLib?.PDFDocument) resolve();
-        else prior.addEventListener("load", () => resolve(), { once: true });
-        prior.addEventListener("error", () => resolve(), { once: true });
-      });
-    } else {
-      await new Promise((resolve, reject) => {
-        const script = document.createElement("script");
-        script.src = PDFLIB_SCRIPT_PATH;
-        script.async = true;
-        script.dataset.vendorBundle = "pdflib";
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error("Local PDF-Lib bundle not found at static/vendor/pdflib/pdf-lib.min.js."));
-        document.head.appendChild(script);
-      });
-    }
-
-    if (!globalThis.PDFLib?.PDFDocument) throw new Error("Local PDF-Lib bundle is missing or incomplete.");
-    return globalThis.PDFLib;
-  })();
+  pdfLibPromise = typeof document === "undefined"
+    ? import("pdf-lib")
+    : loadVendorScript(PDFLIB_SCRIPT_PATH, "PDFLib", (lib) => lib?.PDFDocument);
   return pdfLibPromise;
 }
 
@@ -316,7 +289,7 @@ function joinPages(pages, key = "text") {
 
 async function loadPdfDocument(sourceBytes) {
   const pdfjs = await ensurePdfJs();
-  const bytes = new Uint8Array(cloneArrayBuffer(sourceBytes));
+  const bytes = new Uint8Array(sourceBytes.slice(0));
   const loadingTask = pdfjs.getDocument({
     data: bytes,
     useWorkerFetch: false,
@@ -407,7 +380,7 @@ export async function preparePdfDocument(fileState) {
   return {
     kind: "pdf",
     name: fileState.name || "document.pdf",
-    sourceBytes: cloneArrayBuffer(fileState.arrayBuffer),
+    sourceBytes: fileState.arrayBuffer.slice(0),
     pages,
     extractedText: joinPages(pages),
     formatInfo: {

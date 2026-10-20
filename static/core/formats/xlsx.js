@@ -1,12 +1,8 @@
 import { collapseOverlappingReplacements, replacementFor } from "../replacements.js";
 import { scanValueCollectionWithIdentitySeeds } from "../scan-helpers.js";
-import { annotateFindings, descendingReplacementOrder, summarise } from "../utils.js";
+import { annotateFindings, descendingReplacementOrder, loadVendorScript, summarise } from "../utils.js";
 
 const EXCELJS_SCRIPT_PATH = "./static/vendor/exceljs/exceljs.min.js";
-
-function cloneArrayBuffer(buffer) {
-  return buffer.slice(0);
-}
 
 async function ensureExcelJs() {
   if (typeof document === "undefined") {
@@ -14,37 +10,7 @@ async function ensureExcelJs() {
     return imported.default || imported;
   }
 
-  const existing = globalThis.ExcelJS;
-  if (existing?.Workbook) return existing;
-
-  const prior = document.querySelector(`script[data-vendor-bundle="exceljs"]`);
-  if (prior) {
-    await new Promise((resolve) => {
-      if (globalThis.ExcelJS?.Workbook) resolve();
-      else prior.addEventListener("load", () => resolve(), { once: true });
-      prior.addEventListener("error", () => resolve(), { once: true });
-    });
-  } else {
-    await new Promise((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = EXCELJS_SCRIPT_PATH;
-      script.async = true;
-      script.dataset.vendorBundle = "exceljs";
-      script.onload = () => resolve();
-      script.onerror = () => reject(new Error("Local ExcelJS bundle not found at static/vendor/exceljs/exceljs.min.js."));
-      document.head.appendChild(script);
-    });
-  }
-
-  const loaded = globalThis.ExcelJS;
-  if (!loaded?.Workbook) {
-    throw new Error("Local ExcelJS bundle is missing or incomplete.");
-  }
-  return loaded;
-}
-
-function extFromName(name = "") {
-  return name.toLowerCase().endsWith(".xlsx") ? "xlsx" : "xlsx";
+  return loadVendorScript(EXCELJS_SCRIPT_PATH, "ExcelJS", (lib) => lib?.Workbook);
 }
 
 function cellDisplayValue(cell) {
@@ -63,7 +29,7 @@ function cellDisplayValue(cell) {
 async function loadWorkbook(arrayBuffer) {
   const ExcelJS = await ensureExcelJs();
   const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(cloneArrayBuffer(arrayBuffer));
+  await workbook.xlsx.load(arrayBuffer.slice(0));
   return workbook;
 }
 
@@ -95,8 +61,7 @@ export async function prepareXlsxDocument(fileState) {
   return {
     kind: "xlsx",
     name: fileState.name || "workbook.xlsx",
-    ext: extFromName(fileState.name),
-    sourceBytes: cloneArrayBuffer(fileState.arrayBuffer),
+    sourceBytes: fileState.arrayBuffer.slice(0),
     sheets,
     formatInfo: {
       label: "Excel workbook (.xlsx)",

@@ -11,7 +11,7 @@ Refresh these files after dependency updates with:
 
 ```bash
 npm install
-npm run vendor:ocr
+npm run vendor:browser-deps
 ```
 
 Why this folder exists:

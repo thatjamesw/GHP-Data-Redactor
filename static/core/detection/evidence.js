@@ -101,10 +101,6 @@ export function semanticEvidence(context = {}, label) {
   return { matched: score > 0, score: Math.min(score, 0.24), reasons };
 }
 
-export function contextBlocksIdentity(context = {}) {
-  return identityContextBlocked(contextSegments(context));
-}
-
 export function confidenceWithEvidence(baseConfidence, context, label, ceiling = 0.99) {
   const evidence = semanticEvidence(context, label);
   return Math.min(ceiling, baseConfidence + evidence.score);

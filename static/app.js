@@ -131,9 +131,7 @@ function renderSummary(summary = { total: 0, high: 0, medium: 0 }) {
 }
 
 function setsEqual(left, right) {
-  if (left.size !== right.size) return false;
-  for (const item of left) if (!right.has(item)) return false;
-  return true;
+  return left.size === right.size && left.isSubsetOf(right);
 }
 
 function renderSelectionTrust() {
@@ -303,8 +301,6 @@ function mimeTypeForFile(name = "") {
   if (lower.endsWith(".csv")) return "text/csv;charset=utf-8";
   if (lower.endsWith(".tsv")) return "text/tab-separated-values;charset=utf-8";
   if (lower.endsWith(".xlsx")) return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-  if (lower.endsWith(".pdf")) return "text/plain;charset=utf-8";
-  if (lower.endsWith(".docx")) return "text/plain;charset=utf-8";
   return "text/plain;charset=utf-8";
 }
 
