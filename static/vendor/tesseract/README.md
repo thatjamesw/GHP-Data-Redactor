@@ -4,7 +4,7 @@ Generated files:
 
 - `static/vendor/tesseract/tesseract.min.js`
 - `static/vendor/tesseract/worker.min.js`
-- `static/vendor/tesseract/core/*-lstm.*`
+- `static/vendor/tesseract/core/*-lstm.wasm.js` (SIMD and relaxed-SIMD only)
 - `static/vendor/tesseract/lang/eng.traineddata.gz`
 
 Refresh these files after dependency updates with:
