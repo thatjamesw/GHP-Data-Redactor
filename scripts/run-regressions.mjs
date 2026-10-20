@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { crc32, deflateRawSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 import ExcelJS from "exceljs";
 
@@ -81,6 +82,40 @@ function buildMinimalPdf(text) {
   return new TextEncoder().encode(body).buffer;
 }
 
+// A one-entry deflated zip holding word/document.xml is all the DOCX reader needs.
+function buildMinimalDocx(paragraphs) {
+  const xml = Buffer.from(`<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${
+    paragraphs.map((text) => `<w:p><w:r><w:t xml:space="preserve">${text}</w:t></w:r></w:p>`).join("")
+  }</w:body></w:document>`);
+  const name = Buffer.from("word/document.xml");
+  const data = deflateRawSync(xml);
+  const entry = (signature, size) => {
+    const header = Buffer.alloc(size);
+    header.writeUInt32LE(signature, 0);
+    return header;
+  };
+  const local = entry(0x04034b50, 30);
+  local.writeUInt16LE(8, 8);
+  local.writeUInt32LE(crc32(xml), 14);
+  local.writeUInt32LE(data.length, 18);
+  local.writeUInt32LE(xml.length, 22);
+  local.writeUInt16LE(name.length, 26);
+  const central = entry(0x02014b50, 46);
+  central.writeUInt16LE(8, 10);
+  central.writeUInt32LE(crc32(xml), 16);
+  central.writeUInt32LE(data.length, 20);
+  central.writeUInt32LE(xml.length, 24);
+  central.writeUInt16LE(name.length, 28);
+  const centralOffset = local.length + name.length + data.length;
+  const end = entry(0x06054b50, 22);
+  end.writeUInt16LE(1, 8);
+  end.writeUInt16LE(1, 10);
+  end.writeUInt32LE(central.length + name.length, 12);
+  end.writeUInt32LE(centralOffset, 16);
+  const bytes = Buffer.concat([local, name, data, central, name, end]);
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+}
+
 async function runGeneratedCases() {
   const generated = [];
 
@@ -110,6 +145,18 @@ async function runGeneratedCases() {
     },
     expectAbsent: ["john@example.com"],
     expectPresent: ["[REDACTED]"],
+    minFindings: 1,
+  });
+
+  generated.push({
+    name: "docx extracts paragraph text and redacts it",
+    documentArgs: {
+      textInput: "",
+      fileName: "sample.docx",
+      fileMeta: { kind: "docx", name: "sample.docx", arrayBuffer: buildMinimalDocx(["Contact: Tom &amp; Jerry", "Email anna.berg@example.com"]) },
+    },
+    expectAbsent: ["anna.berg@example.com"],
+    expectPresent: ["Tom & Jerry", "[REDACTED]"],
     minFindings: 1,
   });
 

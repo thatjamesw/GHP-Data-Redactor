@@ -1,32 +1,37 @@
 import { applyTextReplacements } from "../replacements.js";
-import { annotateFindings, loadVendorScript, summarise } from "../utils.js";
+import { annotateFindings, summarise } from "../utils.js";
+import { readZipText } from "../zip.js";
 import { scanTextValue } from "../detectors.js";
 
-const MAMMOTH_SCRIPT_PATH = "./static/vendor/mammoth/mammoth.browser.min.js";
+const XML_ENTITIES = { lt: "<", gt: ">", amp: "&", quot: "\"", apos: "'" };
 
-let mammothPromise = null;
+function decodeXml(text) {
+  return text.replace(/&(#x[0-9a-f]+|#\d+|\w+);/gi, (match, entity) => {
+    if (entity[0] !== "#") return XML_ENTITIES[entity] ?? match;
+    return String.fromCodePoint(entity[1].toLowerCase() === "x" ? parseInt(entity.slice(2), 16) : Number(entity.slice(1)));
+  });
+}
 
-async function ensureMammoth() {
-  if (mammothPromise) return mammothPromise;
-  mammothPromise = (async () => {
-    if (typeof document === "undefined") {
-      const imported = await import("mammoth");
-      return imported.default || imported;
-    }
-    return loadVendorScript(MAMMOTH_SCRIPT_PATH, "mammoth", (lib) => lib?.extractRawText);
-  })();
-  return mammothPromise;
+// Same output shape as mammoth's extractRawText: run text, tabs and breaks, each paragraph followed by a blank line.
+export function docxBodyText(xml) {
+  const body = xml.replace(/<w:pPr\b[\s\S]*?<\/w:pPr>/g, "");
+  let text = "";
+  for (const match of body.matchAll(/<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>|<w:tab\b[^>]*\/>|<w:(?:br|cr)\b[^>]*\/>|<\/w:p>/g)) {
+    if (match[1] !== undefined) text += decodeXml(match[1]);
+    else if (match[0].startsWith("<w:tab")) text += "\t";
+    else if (match[0].startsWith("</")) text += "\n\n";
+    else text += "\n";
+  }
+  return text;
 }
 
 export async function prepareDocxDocument(fileState) {
-  const mammoth = await ensureMammoth();
-  const { value, messages } = await mammoth.extractRawText({ arrayBuffer: fileState.arrayBuffer.slice(0) });
-  const content = String(value || "").replace(/\r\n/g, "\n").trim();
+  const xml = await readZipText(fileState.arrayBuffer.slice(0), "word/document.xml");
+  if (xml == null) throw new Error("This DOCX file has no word/document.xml.");
   return {
     kind: "docx",
     name: fileState.name || "document.docx",
-    content,
-    messages: messages || [],
+    content: docxBodyText(xml).replace(/\r\n/g, "\n").trim(),
     formatInfo: {
       label: "DOCX (text extraction)",
       guarantee: "Document text is extracted locally and exported as cleaned text. Original DOCX layout and styling are not rewritten yet.",

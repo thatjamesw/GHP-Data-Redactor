@@ -48,7 +48,8 @@ The repository now includes:
 - `.github/dependabot.yml` for weekly updates to both npm dependencies and GitHub Actions
 
 For browser parsing specifically, Dependabot can keep `tesseract.js`, `@tesseract.js-data/eng`, `exceljs`, `pdfjs-dist`, `pdf-lib`, and `@huggingface/transformers` current. That is much safer and more maintainable than hardcoding third-party CDN scripts in the page.
-It can also keep `mammoth` current for local DOCX text extraction.
+
+DOCX text and markdown tables are read with built-in browser features (`DecompressionStream` and a small table scanner), so they need no dependency.
 
 ## Supported Inputs
 
@@ -104,9 +105,9 @@ These are not yet part of the static browser build:
 - editable native PDF redaction annotations
 - exact byte-for-byte formatting preservation for every structured format
 
-## Local OCR Assets
+## Local Browser Assets
 
-OCR is now bundled locally for a security-first static deployment. The app loads only from:
+OCR, spreadsheet, PDF, and Deep scan runtimes are served from this site for a security-first static deployment. The app loads only from:
 
 - `static/vendor/tesseract/tesseract.min.js`
 - `static/vendor/tesseract/worker.min.js`
@@ -116,16 +117,16 @@ OCR is now bundled locally for a security-first static deployment. The app loads
 - `static/vendor/pdfjs/pdf.min.mjs`
 - `static/vendor/pdfjs/pdf.worker.min.mjs`
 - `static/vendor/pdflib/pdf-lib.min.js`
-- `static/vendor/mammoth/mammoth.browser.min.js`
+- `static/vendor/transformers` (Deep scan runtime)
 
-The vendored files are generated from npm dependencies with:
+`static/vendor` is generated, not committed. CI and the Pages deploy build it, and for local use run:
 
 ```bash
 npm install
 npm run vendor:browser-deps
 ```
 
-That script copies the OCR runtime, worker, WebAssembly core files, `eng.traineddata.gz`, the local Excel workbook bundle, the local PDF parsing bundle, the local PDF assembly bundle, and the local DOCX extraction bundle from managed dependencies into the static site directory.
+That script copies the OCR runtime, worker, WebAssembly core files, `eng.traineddata.gz`, the local Excel workbook bundle, the local PDF parsing and assembly bundles, and the Deep scan runtime from managed dependencies into the static site directory.
 
 Current OCR scope:
 

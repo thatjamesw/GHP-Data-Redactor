@@ -12,18 +12,12 @@
   "dependencies": {
     "@huggingface/transformers": "^4.3.1",
     "@tesseract.js-data/eng": "^1.0.0",
-    "esbuild": "^0.28.2",
     "exceljs": "^4.4.0",
-    "mammoth": "^1.13.0",
-    "mdast-util-from-markdown": "^2.0.3",
-    "mdast-util-gfm-table": "^2.0.0",
-    "micromark-extension-gfm-table": "^2.1.2",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.4.299",
     "tesseract.js": "7.0.0"
   },
   "overrides": {
-    "@xmldom/xmldom": "0.8.15",
     "tmp": "0.2.7"
   }
 }
