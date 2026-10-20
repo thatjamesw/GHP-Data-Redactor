@@ -3,20 +3,6 @@ import { scanValueCollectionWithIdentitySeeds } from "../scan-helpers.js";
 import { annotateFindings, ascendingFindingOrder, dedupeFindings, detectLineEnding, summarise } from "../utils.js";
 import { scanTextValue } from "../detectors.js";
 
-const markdownModule = typeof document === "undefined"
-  ? await import("mdast-util-from-markdown")
-  : await import("../../vendor/markdown/markdown-parser.bundle.mjs");
-const markdownTableModule = typeof document === "undefined"
-  ? await import("mdast-util-gfm-table")
-  : markdownModule;
-const micromarkTableModule = typeof document === "undefined"
-  ? await import("micromark-extension-gfm-table")
-  : markdownModule;
-
-const { fromMarkdown } = markdownModule;
-const { gfmTableFromMarkdown } = markdownTableModule;
-const { gfmTable } = micromarkTableModule;
-
 const DESCRIPTOR_HEADERS = new Set([
   "alert", "alert family", "capability", "channel", "component", "date", "definition", "dr field", "environment",
   "escalate after", "escalate when", "field", "frequency", "impact", "method", "minimum role", "mitigation",
@@ -24,62 +10,75 @@ const DESCRIPTOR_HEADERS = new Set([
   "risk", "role", "severity", "system", "trigger", "type", "use", "version", "workflow",
 ]);
 
-function nodePlainText(node) {
-  if (!node) return "";
-  if (node.type === "text" || node.type === "inlineCode") return node.value || "";
-  if (!Array.isArray(node.children)) return "";
-  return node.children.map((child) => nodePlainText(child)).join("");
+const TABLE_DELIMITER_ROW = /^\s*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*$/;
+const CODE_FENCE = /^\s{0,3}(?:```|~~~)/;
+
+// Cell text as a markdown renderer would show it: links reduced to their text, emphasis and code ticks dropped.
+function inlinePlainText(raw) {
+  return raw
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\\([\\`*_{}[\]()#+\-.!|])/g, "$1")
+    .replace(/\*\*|__|`/g, "")
+    .replace(/(^|\s)[*_]+|[*_]+(?=\s|$)/g, "$1")
+    .trim();
 }
 
-function firstTextualDescendant(node) {
-  if (!node) return null;
-  if ((node.type === "text" || node.type === "inlineCode") && node.position) return node;
-  if (!Array.isArray(node.children)) return null;
-  for (const child of node.children) {
-    const match = firstTextualDescendant(child);
-    if (match) return match;
-  }
-  return null;
-}
-
-function lastTextualDescendant(node) {
-  if (!node) return null;
-  if ((node.type === "text" || node.type === "inlineCode") && node.position) return node;
-  if (!Array.isArray(node.children)) return null;
-  for (let index = node.children.length - 1; index >= 0; index -= 1) {
-    const match = lastTextualDescendant(node.children[index]);
-    if (match) return match;
-  }
-  return null;
-}
-
-function cellValueWithOffsets(source, cell) {
-  const text = nodePlainText(cell).trim();
+function tableCell(raw, start) {
+  const text = inlinePlainText(raw);
   if (!text) return null;
+  const offset = raw.indexOf(text);
+  if (offset >= 0) return { text, start: start + offset, end: start + offset + text.length, original: text };
+  const leading = raw.length - raw.trimStart().length;
+  const original = raw.trim();
+  return { text, start: start + leading, end: start + leading + original.length, original };
+}
 
-  const first = firstTextualDescendant(cell);
-  const last = lastTextualDescendant(cell);
-  const fallbackStart = cell.position?.start?.offset ?? 0;
-  const fallbackEnd = cell.position?.end?.offset ?? fallbackStart;
-  const start = first?.position?.start?.offset ?? fallbackStart;
-  const end = last?.position?.end?.offset ?? fallbackEnd;
-  const original = source.slice(start, end);
-  const textOffset = original.indexOf(text);
-  if (textOffset >= 0) {
-    return {
-      text,
-      start: start + textOffset,
-      end: start + textOffset + text.length,
-      original: text,
-    };
+function tableRowCells(line, lineStart) {
+  const bounds = [];
+  let cellStart = 0;
+  for (let index = 0; index <= line.length; index += 1) {
+    if (index < line.length && (line[index] !== "|" || line[index - 1] === "\\")) continue;
+    bounds.push([cellStart, index]);
+    cellStart = index + 1;
+  }
+  if (line.trimStart().startsWith("|")) bounds.shift();
+  if (/(?:^|[^\\])\|\s*$/.test(line)) bounds.pop();
+  return bounds.map(([from, to]) => tableCell(line.slice(from, to), lineStart + from));
+}
+
+// GFM tables: a header row, a matching delimiter row, then rows until a blank line.
+// ponytail: tables nested in blockquotes or list items are not recognised
+function markdownTables(source) {
+  const lines = [];
+  let offset = 0;
+  for (const text of source.split("\n")) {
+    lines.push({ text: text.replace(/\r$/, ""), start: offset });
+    offset += text.length + 1;
   }
 
-  return {
-    text,
-    start,
-    end: Math.max(start, end),
-    original,
-  };
+  const tables = [];
+  let inFence = false;
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (CODE_FENCE.test(line.text)) {
+      inFence = !inFence;
+      continue;
+    }
+    const delimiter = lines[index + 1];
+    if (inFence || !line.text.includes("|") || !delimiter || !TABLE_DELIMITER_ROW.test(delimiter.text)) continue;
+    const header = tableRowCells(line.text, line.start);
+    if (header.length !== tableRowCells(delimiter.text, delimiter.start).length) continue;
+
+    const rows = [];
+    index += 2;
+    while (index < lines.length && lines[index].text.trim() && !CODE_FENCE.test(lines[index].text)) {
+      rows.push(tableRowCells(lines[index].text, lines[index].start).slice(0, header.length));
+      index += 1;
+    }
+    index -= 1;
+    tables.push({ header, rows });
+  }
+  return tables;
 }
 
 function collapseNestedFindings(findings) {
@@ -111,13 +110,6 @@ function finalizeTextFindings(findings) {
   return collapseNestedFindings(dedupeFindings(collapseDuplicateRanges(findings))).sort(ascendingFindingOrder);
 }
 
-function visitNodes(node, onNode) {
-  if (!node || typeof node !== "object") return;
-  onNode(node);
-  if (!Array.isArray(node.children)) return;
-  node.children.forEach((child) => visitNodes(child, onNode));
-}
-
 function normalizedHeader(value) {
   return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
 }
@@ -125,24 +117,14 @@ function normalizedHeader(value) {
 function markdownTableFindings(source, options, kind) {
   const findings = [];
   const cells = [];
-  const tree = fromMarkdown(source, {
-    extensions: [gfmTable()],
-    mdastExtensions: [gfmTableFromMarkdown()],
-  });
-  let tableIndex = 0;
+  markdownTables(source).forEach(({ header, rows: dataRows }, currentTableIndex) => {
+    if (!dataRows.length) return;
 
-  visitNodes(tree, (node) => {
-    if (node.type !== "table") return;
-    const currentTableIndex = tableIndex;
-    tableIndex += 1;
-    const [headerRow, ...dataRows] = node.children || [];
-    if (!headerRow?.children?.length || !dataRows.length) return;
-
-    const headers = headerRow.children.map((cell, columnIndex) => cellValueWithOffsets(source, cell)?.text || `column_${columnIndex + 1}`);
+    const headers = header.map((cell, columnIndex) => cell?.text || `column_${columnIndex + 1}`);
     const normalizedHeaders = headers.map((header) => normalizedHeader(header));
     const fieldValueTable = normalizedHeaders.length === 2 && normalizedHeaders[0] === "field" && normalizedHeaders[1] === "value";
     dataRows.forEach((row, rowIndex) => {
-      const rowCells = (row.children || []).map((cell) => cellValueWithOffsets(source, cell));
+      const rowCells = row;
       const emailIndex = rowCells.findIndex((cell) => cell && /^[A-Za-z0-9._%+\-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,63}$/.test(cell.text));
       const phoneIndex = rowCells.findIndex((cell) => {
         if (!cell || !/^[+\d(][\d\s().-]{6,}$/.test(cell.text)) return false;
@@ -151,8 +133,7 @@ function markdownTableFindings(source, options, kind) {
       });
       const contactAnchorIndex = emailIndex !== -1 ? emailIndex : phoneIndex;
 
-      row.children?.forEach((cell, columnIndex) => {
-        const cellData = cellValueWithOffsets(source, cell);
+      row.forEach((cellData, columnIndex) => {
         if (!cellData) return;
 
         const header = headers[columnIndex] || `column_${columnIndex + 1}`;
