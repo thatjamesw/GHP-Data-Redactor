@@ -12,7 +12,7 @@ Browser-based redaction tool for cleaning sensitive data before sharing it with 
 - Supports both `redact` and `pseudonymise` output modes
 - Includes a one-click `LLM-safe copy` workflow
 - Lets you copy the cleaned result or export it as a file
-- Includes a built-in benchmark view so you can track detector coverage over time
+- Includes a "Rules vs Deep scan" panel that runs both detectors over a fixed sample set (structured values, names and addresses in sentences, and text that must not be redacted)
 - Includes workflow presets for `LLM-safe`, `Balanced`, `Secrets only`, and `Structured PII`
 - Includes a more conservative `Paranoid redaction` preset
 - Supports manual blackout boxes for image and PDF redaction when detection misses a region

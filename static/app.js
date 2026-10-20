@@ -1,7 +1,7 @@
 import { benchmarkCorpus } from "./core/benchmark-data.js";
 import { deepScanEntities, deepScanSupported, shutdownDeepScan } from "./core/deep-scan.js";
 import { shutdownImageWorker } from "./core/formats/image.js";
-import { findingsForDisplay, prepareDocument, redactDocument, scanDocument, scanTextValue } from "./redactor-core.js";
+import { applyTextReplacements, findingsForDisplay, prepareDocument, redactDocument, scanDocument, scanTextValue } from "./redactor-core.js";
 
 const fileInput = document.querySelector("#file-input");
 const textInput = document.querySelector("#text-input");
@@ -33,8 +33,8 @@ const benchmarkStatus = document.querySelector("#benchmark-status");
 const benchmarkResults = document.querySelector("#benchmark-results");
 const benchmarkBreakdown = document.querySelector("#benchmark-breakdown");
 const benchmarkTotal = document.querySelector("#benchmark-total");
-const benchmarkHit = document.querySelector("#benchmark-hit");
-const benchmarkRate = document.querySelector("#benchmark-rate");
+const benchmarkRules = document.querySelector("#benchmark-rules");
+const benchmarkDeep = document.querySelector("#benchmark-deep");
 const fileSummary = document.querySelector("#file-summary");
 const formatNote = document.querySelector("#format-note");
 const outputNote = document.querySelector("#output-note");
@@ -415,10 +415,10 @@ async function secureSessionWipe() {
   outputNote.textContent = "Output formatting notes will appear here once content has been processed.";
   benchmarkResults.textContent = "Benchmark results will appear here.";
   benchmarkResults.classList.add("empty");
-  benchmarkBreakdown.textContent = "Category breakdown will appear here after running the benchmark.";
+  benchmarkBreakdown.textContent = "Uses your current settings. Turn on Deep scan at the top to fill in the Deep scan column.";
   benchmarkTotal.textContent = "0";
-  benchmarkHit.textContent = "0";
-  benchmarkRate.textContent = "0%";
+  benchmarkRules.textContent = "–";
+  benchmarkDeep.textContent = "–";
   renderSummary();
   renderSelectionTrust();
   reviewEmpty.classList.remove("hidden");
@@ -900,30 +900,48 @@ async function copyOutput(text, successMessage) {
   }
 }
 
-function runBenchmark() {
+function benchmarkPasses(sample, options) {
+  const findings = scanTextValue(sample.text, options, { keyHint: sample.keyHint || "", previewPath: "benchmark" });
+  const threshold = autoSelectThreshold();
+  const selected = new Set(findings.filter((finding) => finding.confidence >= threshold).map((finding) => finding.id));
+  const output = applyTextReplacements(sample.text, findings, selected, "redact");
+  return (sample.hide || []).every((value) => !output.includes(value)) && (sample.keep || []).every((value) => output.includes(value));
+}
+
+async function runBenchmark() {
   const options = currentOptions();
-  const results = benchmarkCorpus.map((testCase) => {
-    const findings = scanTextValue(testCase.text, options, { keyHint: testCase.keyHint || "", previewPath: "benchmark" });
-    const matched = findings.some((finding) => finding.label === testCase.label);
-    return { ...testCase, matched, findings };
-  });
-  const hitCount = results.filter((item) => item.matched).length;
-  benchmarkTotal.textContent = String(results.length);
-  benchmarkHit.textContent = String(hitCount);
-  benchmarkRate.textContent = `${Math.round((hitCount / Math.max(1, results.length)) * 100)}%`;
-  const byCategory = new Map();
-  for (const item of results) {
-    if (!byCategory.has(item.category)) byCategory.set(item.category, { total: 0, hit: 0 });
-    const bucket = byCategory.get(item.category);
-    bucket.total += 1;
-    if (item.matched) bucket.hit += 1;
+  const withDeepScan = deepScanSupported && deepScan.checked;
+  const results = [];
+  for (const [index, sample] of benchmarkCorpus.entries()) {
+    const result = { ...sample, rules: benchmarkPasses(sample, options) };
+    if (withDeepScan) {
+      setStatus(benchmarkStatus, `Deep scan: sample ${index + 1} of ${benchmarkCorpus.length}.`, "warn");
+      const modelEntities = await deepScanEntities(sample.text, (progress) => {
+        reportDeepScanProgress(progress);
+        if (progress.status === "progress") setStatus(benchmarkStatus, inputStatus.textContent, "warn");
+      });
+      result.deep = benchmarkPasses(sample, { ...options, modelEntities });
+    }
+    results.push(result);
   }
-  benchmarkBreakdown.textContent = [...byCategory.entries()]
-    .map(([category, stats]) => `${category}: ${stats.hit}/${stats.total}`)
+
+  const passed = (key, items = results) => `${items.filter((item) => item[key]).length}/${items.length}`;
+  benchmarkTotal.textContent = String(results.length);
+  benchmarkRules.textContent = passed("rules");
+  benchmarkDeep.textContent = withDeepScan ? passed("deep") : "–";
+  benchmarkBreakdown.textContent = [...Map.groupBy(results, (item) => item.group)]
+    .map(([group, items]) => `${group}: rules ${passed("rules", items)}${withDeepScan ? `, Deep scan ${passed("deep", items)}` : ""}`)
     .join(" • ");
+  const mark = (value) => (value === undefined ? "  –  " : value ? "PASS " : "MISS ");
   benchmarkResults.classList.remove("empty");
-  benchmarkResults.innerHTML = results.map((item) => `${item.matched ? "PASS" : "MISS"}  ${item.label.padEnd(16, " ")}  ${item.text}`).join("\n");
-  setStatus(benchmarkStatus, `${hitCount} of ${results.length} benchmark samples matched with the current detector settings.`, hitCount === results.length ? "success" : "warn");
+  benchmarkResults.textContent = ["Rules Deep  Sample", ...results.map((item) => `${mark(item.rules)} ${mark(item.deep)} ${item.text}`)].join("\n");
+  setStatus(
+    benchmarkStatus,
+    withDeepScan
+      ? `Rules passed ${passed("rules")} samples and Deep scan passed ${passed("deep")}, at your current settings.`
+      : `Rules passed ${passed("rules")} samples at your current settings. Turn on Deep scan at the top to compare.`,
+    "success",
+  );
 }
 
 document.querySelector("#scan-button").addEventListener("click", async () => {
@@ -1042,7 +1060,13 @@ stickyDownloadButton.addEventListener("click", () => {
   document.querySelector("#download-button").click();
 });
 
-document.querySelector("#benchmark-button").addEventListener("click", runBenchmark);
+document.querySelector("#benchmark-button").addEventListener("click", async () => {
+  try {
+    await runBenchmark();
+  } catch (error) {
+    setStatus(benchmarkStatus, `Comparison failed: ${error.message}`, "error");
+  }
+});
 
 clearButton.addEventListener("click", () => {
   secureSessionWipe().catch((error) => {
