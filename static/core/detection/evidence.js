@@ -28,6 +28,10 @@ const IDENTITY_CONTEXT_BLOCKLIST = new Set([
 ]);
 const ADDRESS_TOKEN = /[\p{Script=Latin}\p{M}0-9.'\u2019/-]+/gu;
 const POSTAL_CODE = /\b(?:[A-Z]{1,2}[-\s]?)?\d{3,6}(?:[-\s]\d{2,4})?\b/i;
+// "221B Baker Street": a house number followed by capitalised words ending in an English street type.
+const NUMBERED_STREET = /\b\d{1,6}[A-Za-z]?\s+(?:\p{Lu}[\p{L}\p{M}'\u2019-]*\s+){1,3}(?:Street|St|Road|Rd|Avenue|Ave|Lane|Ln|Drive|Dr|Boulevard|Blvd|Way|Parkway|Pkwy|Place|Pl|Court|Ct|Terrace|Close|Crescent|Square|Highway|Hwy)\b/u;
+// "Ship to 221B Baker Street": up to three lead-in words ending in a preposition are not part of the address.
+const ADDRESS_LEAD_IN = /^(?:\S+\s+){0,3}?(?:to|at|from|is|in)\s+/i;
 const OBVIOUS_NON_ADDRESS = /\b(?:iban|bic|swift|vat|version|build|invoice|order|project|issue|ticket|room|page|section|chapter|row|column)\b/i;
 const DATE_LIKE = /\b(?:\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|\d{4}[./-]\d{1,2}[./-]\d{1,2})\b/;
 const EMAIL_VALUE = /^[A-Za-z0-9._%+\-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,63}$/;
@@ -138,7 +142,9 @@ export function addressCandidates(content) {
   for (const line of lines) {
     const rawParts = line.includes(":") ? [line.slice(line.indexOf(":") + 1), line] : [line];
     for (const rawPart of rawParts) {
-      const value = rawPart.trim();
+      const whole = rawPart.trim();
+      const withoutLeadIn = whole.replace(ADDRESS_LEAD_IN, "");
+      const value = withoutLeadIn !== whole && isLikelyStreetAddress(withoutLeadIn) ? withoutLeadIn : whole;
       if (!isLikelyStreetAddress(value)) continue;
       const start = offset + line.indexOf(value);
       candidates.push({ value, start, end: start + value.length });
@@ -152,6 +158,7 @@ export function addressCandidates(content) {
 export function addressConfidence(value, context = {}) {
   let confidence = isLikelyStreetAddress(value) ? 0.72 : 0;
   if (POSTAL_CODE.test(value)) confidence += 0.06;
+  if (NUMBERED_STREET.test(value)) confidence += 0.1;
   confidence += semanticEvidence(context, "STREET_ADDRESS").score;
   return Math.min(0.9, confidence);
 }
