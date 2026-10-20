@@ -1,5 +1,5 @@
 import { scanTextValue } from "../detectors.js";
-import { summarise } from "../utils.js";
+import { loadVendorScript, summarise } from "../utils.js";
 
 const TESSERACT_SCRIPT_PATH = "./static/vendor/tesseract/tesseract.min.js";
 const TESSERACT_WORKER_PATH = "./static/vendor/tesseract/worker.min.js";
@@ -9,34 +9,8 @@ const TESSERACT_LANG_PATH = "./static/vendor/tesseract/lang";
 let workerPromise = null;
 let activeWorker = null;
 
-async function ensureTesseract() {
-  const existing = globalThis.Tesseract;
-  if (existing && typeof existing.recognize === "function") return existing;
-
-  const prior = document.querySelector(`script[data-ocr-bundle="tesseract"]`);
-  if (prior) {
-    await new Promise((resolve) => {
-      if (globalThis.Tesseract) resolve();
-      else prior.addEventListener("load", () => resolve(), { once: true });
-      prior.addEventListener("error", () => resolve(), { once: true });
-    });
-  } else {
-    await new Promise((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = TESSERACT_SCRIPT_PATH;
-      script.async = true;
-      script.dataset.ocrBundle = "tesseract";
-      script.onload = () => resolve();
-      script.onerror = () => reject(new Error("Local OCR bundle not found at static/vendor/tesseract/tesseract.min.js."));
-      document.head.appendChild(script);
-    });
-  }
-
-  const loaded = globalThis.Tesseract;
-  if (!loaded || typeof loaded.recognize !== "function") {
-    throw new Error("Local OCR bundle is missing or incomplete. Add the vendored Tesseract browser files under static/vendor/tesseract.");
-  }
-  return loaded;
+function ensureTesseract() {
+  return loadVendorScript(TESSERACT_SCRIPT_PATH, "Tesseract", (lib) => typeof lib?.recognize === "function");
 }
 
 async function ensureWorker() {

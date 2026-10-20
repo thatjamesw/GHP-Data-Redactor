@@ -1,4 +1,3 @@
-import { normalizeIdentityText } from "../utils.js";
 
 export function luhnOk(value) {
   const digits = (value || "").replace(/\D/g, "");
@@ -58,35 +57,6 @@ export function contextContains(context = {}, pattern) {
     .filter(Boolean)
     .join(" ");
   return pattern.test(haystack);
-}
-
-function normalizedContextSegments(context = {}) {
-  return [
-    context.keyHint,
-    context.previewPath,
-    context.path,
-    context.kind,
-  ]
-    .flatMap((value) => (Array.isArray(value) ? value : [value]))
-    .filter(Boolean)
-    .map((value) => normalizeIdentityText(value))
-    .filter(Boolean);
-}
-
-export function contextHasSemanticHint(context = {}, aliases = []) {
-  if (!aliases.length) return false;
-  const segments = normalizedContextSegments(context);
-  if (!segments.length) return false;
-  const joined = segments.join(" ");
-  const segmentTokenSets = segments.map((segment) => new Set(segment.split(" ").filter(Boolean)));
-
-  return aliases.some((alias) => {
-    const normalizedAlias = normalizeIdentityText(alias);
-    if (!normalizedAlias) return false;
-    if (joined.includes(normalizedAlias)) return true;
-    const aliasTokens = normalizedAlias.split(" ").filter(Boolean);
-    return segmentTokenSets.some((tokens) => aliasTokens.every((token) => tokens.has(token)));
-  });
 }
 
 export function boostConfidence(baseConfidence, contextMatched, boost = 0.12, ceiling = 0.99) {
