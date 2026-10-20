@@ -382,5 +382,50 @@
       "| Customer primary | [REDACTED] | [REDACTED] |"
     ],
     "minFindings": 2
+  },
+  {
+    "name": "deep scan entities are redacted in prose and seed leetspeak variants",
+    "threshold": "medium",
+    "input": "Priya Raghunathan joined the call. Later notes came from pr1ya raghunathan.\n",
+    "options": {
+      "modelEntities": [
+        {
+          "label": "PERSON",
+          "text": "Priya Raghunathan",
+          "score": 0.99
+        }
+      ]
+    },
+    "expectAbsent": [
+      "Priya Raghunathan",
+      "pr1ya raghunathan"
+    ],
+    "minFindings": 2
+  },
+  {
+    "name": "deep scan entities apply inside json values without duplicating structured findings",
+    "threshold": "high",
+    "fileName": "ticket.json",
+    "input": "{\n  \"note\": \"Escalated by Siobhan O'Connell, siobhan@example.org\"\n}\n",
+    "options": {
+      "modelEntities": [
+        {
+          "label": "PERSON",
+          "text": "Siobhan O'Connell",
+          "score": 0.99
+        },
+        {
+          "label": "EMAIL",
+          "text": "siobhan@example.org",
+          "score": 0.99
+        }
+      ]
+    },
+    "expectAbsent": [
+      "Siobhan O'Connell",
+      "siobhan@example.org"
+    ],
+    "minFindings": 2,
+    "maxFindings": 2
   }
 ]

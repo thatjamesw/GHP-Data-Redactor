@@ -20,3 +20,6 @@ uploads/
 *.swp
 *~
 art-direction.md
+
+# Built by `npm run vendor:browser-deps` (CI and deploy run it); not committed.
+static/vendor/transformers/

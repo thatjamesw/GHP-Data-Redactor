@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self' data:; media-src 'self' data: blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; worker-src 'self';" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://huggingface.co https://*.hf.co; font-src 'self' data:; media-src 'self' data: blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; worker-src 'self';" />
   <meta name="referrer" content="no-referrer" />
   <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), bluetooth=(), accelerometer=(), gyroscope=()" />
   <title>Redactor MVP</title>
@@ -104,6 +104,7 @@
           <div class="scope-list">
             <label class="scope-pill"><input id="strict-email" type="checkbox" checked /><span>Strict email matching</span><small>Prefer full addresses and avoid loose fragments.</small></label>
             <label class="scope-pill"><input id="detect-names" type="checkbox" checked /><span>Names, places, and organisations</span><small>Catch identity signals beyond structured tokens.</small></label>
+            <label class="scope-pill"><input id="deep-scan" type="checkbox" /><span>Deep scan with a local AI model</span><small id="deep-scan-note">Better at names and addresses in ordinary sentences. Downloads an ~840 MB model from Hugging Face once; your text never leaves this browser.</small></label>
             <label class="scope-pill"><input id="detect-faces" type="checkbox" checked /><span>Faces in images</span><small>Use local browser detection with document-photo fallback support.</small></label>
           </div>
         </div>

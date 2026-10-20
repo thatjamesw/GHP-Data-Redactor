@@ -13,7 +13,7 @@ const coreFiles = ["tesseract-core-simd-lstm.wasm.js", "tesseract-core-relaxedsi
   .map((file) => [`tesseract.js-core/${file}`, `tesseract/core/${file}`]);
 
 // Stale directories are wiped first so removed upstream files don't linger.
-const clean = ["pdfjs/standard_fonts", "tesseract/core", "tesseract/lang"];
+const clean = ["pdfjs/standard_fonts", "tesseract/core", "tesseract/lang", "transformers"];
 
 // [source under node_modules, destination under static/vendor]
 const copies = [
@@ -27,6 +27,11 @@ const copies = [
   ["tesseract.js/dist/worker.min.js", "tesseract/worker.min.js"],
   ...coreFiles,
   ["@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz", "tesseract/lang/eng.traineddata.gz"],
+  ["@huggingface/transformers/dist/transformers.min.js", "transformers/transformers.min.js"],
+  // Transformers.js runs WebGPU through the asyncify build of the ONNX runtime.
+  ...[".mjs", ".wasm"].map((ext) => [
+    `onnxruntime-web/dist/ort-wasm-simd-threaded.asyncify${ext}`, `transformers/ort-wasm-simd-threaded.asyncify${ext}`,
+  ]),
 ];
 
 for (const dir of clean) {
