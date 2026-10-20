@@ -32,7 +32,7 @@ const POSTAL_CODE = /\b(?:[A-Z]{1,2}[-\s]?)?\d{3,6}(?:[-\s]\d{2,4})?\b/i;
 const NUMBERED_STREET = /\b\d{1,6}[A-Za-z]?\s+(?:\p{Lu}[\p{L}\p{M}'\u2019-]*\s+){1,3}(?:Street|St|Road|Rd|Avenue|Ave|Lane|Ln|Drive|Dr|Boulevard|Blvd|Way|Parkway|Pkwy|Place|Pl|Court|Ct|Terrace|Close|Crescent|Square|Highway|Hwy)\b/u;
 // "Ship to 221B Baker Street": up to three lead-in words ending in a preposition are not part of the address.
 const ADDRESS_LEAD_IN = /^(?:\S+\s+){0,3}?(?:to|at|from|is|in)\s+/i;
-const OBVIOUS_NON_ADDRESS = /\b(?:iban|bic|swift|vat|version|build|invoice|order|project|issue|ticket|room|page|section|chapter|row|column)\b/i;
+const OBVIOUS_NON_ADDRESS = /\b(?:iban|bic|swift|vat|version|build|invoice|order|project|issue|ticket|room|page|section|chapter|row|column|password|passwd|passphrase|pin|token|secret)\b/i;
 const DATE_LIKE = /\b(?:\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|\d{4}[./-]\d{1,2}[./-]\d{1,2})\b/;
 const EMAIL_VALUE = /^[A-Za-z0-9._%+\-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,63}$/;
 const PHONE_VALUE = /^[+\d(][\d\s().-]{6,}$/;

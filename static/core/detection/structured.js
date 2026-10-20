@@ -14,6 +14,9 @@ const URL = /https?:\/\/[^\s`|<>)]+/g;
 const GENERIC_SECRET = /\b[A-Za-z0-9_\-]{24,}\b/g;
 // Published token prefixes: GitHub, GitLab, Slack, Stripe, Anthropic, OpenAI project keys, Google API, npm, Hugging Face.
 const KNOWN_TOKEN = /\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{22,}|glpat-[A-Za-z0-9_-]{20,}|xox[abposr]-[A-Za-z0-9-]{10,}|[sr]k_(?:live|test)_[A-Za-z0-9]{16,}|sk-ant-[A-Za-z0-9_-]{20,}|sk-proj-[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{35}|npm_[A-Za-z0-9]{36}|hf_[A-Za-z0-9]{30,})/g;
+// "password: x", "DB_PASSWORD=x", "Password for the staging db is x": the value after a password label.
+// After "is" the value must contain a digit or symbol, so "the password policy is strict" stays prose.
+const INLINE_PASSWORD = /(?<![A-Za-z])(?:password|passwd|pwd|passphrase|pin)(?![A-Za-z])[^\n:=]{0,40}?([:=]|\bis\b)[ \t]*(\S{4,})/gi;
 const INLINE_BIC_LABEL = /\b(?:BIC|SWIFT)(?:[\s/-]*(?:BIC|code))?\s*[:=#]?\s*$/i;
 const CREDIT_CARD = /\b(?:\d[ -]*?){13,19}\b/g;
 const IBAN = /\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]){11,30}\b/gi;
@@ -108,6 +111,14 @@ export function scanStructuredFindings(content, options = {}, context = {}, find
   if (categoryEnabled(options, "POTENTIAL_SECRET")) {
     scanUrlSecrets(content, context, findings);
     scanMatches(content, KNOWN_TOKEN, "POTENTIAL_SECRET", 0.95, findings, context, ["known_token_prefix"]);
+    INLINE_PASSWORD.lastIndex = 0;
+    let passwordMatch;
+    while ((passwordMatch = INLINE_PASSWORD.exec(content)) !== null) {
+      const value = passwordMatch[2].replace(/[.,;)]+$/, "");
+      if (passwordMatch[1].toLowerCase() === "is" && !/[\d\W_]/.test(value)) continue;
+      const start = passwordMatch.index + passwordMatch[0].length - passwordMatch[2].length;
+      addFinding(findings, "POTENTIAL_SECRET", 0.9, start, start + value.length, value, ["inline_password_label"], context);
+    }
     GENERIC_SECRET.lastIndex = 0;
     let secretMatch;
     while ((secretMatch = GENERIC_SECRET.exec(content)) !== null) {

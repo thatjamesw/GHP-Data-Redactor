@@ -495,5 +495,54 @@
     "expectAbsent": [
       "Baker Street"
     ]
+  },
+  {
+    "name": "inline password labels redact the value but not password prose",
+    "threshold": "high",
+    "input": "Password for the staging db is Tr0ub4dor&3\nDB_PASSWORD=s3cr3t-Value\nThe password policy is strict.\n",
+    "expectAbsent": [
+      "Tr0ub4dor&3",
+      "s3cr3t-Value"
+    ],
+    "expectPresent": [
+      "The password policy is strict."
+    ]
+  },
+  {
+    "name": "deep scan entities match whole words only",
+    "threshold": "high",
+    "input": "Mo will be in on Monday; ask Mo.\n",
+    "options": {
+      "modelEntities": [
+        {
+          "label": "PERSON",
+          "text": "Mo",
+          "score": 0.95
+        }
+      ]
+    },
+    "expectPresent": [
+      "on Monday;"
+    ],
+    "expectAbsent": [
+      "ask Mo"
+    ]
+  },
+  {
+    "name": "a weak overlapping rule finding does not block a strong deep scan finding",
+    "threshold": "high",
+    "input": "Use Tr0ub4dor&3 for the staging box\n",
+    "options": {
+      "modelEntities": [
+        {
+          "label": "POTENTIAL_SECRET",
+          "text": "Tr0ub4dor&3",
+          "score": 1
+        }
+      ]
+    },
+    "expectAbsent": [
+      "Tr0ub4dor&3"
+    ]
   }
 ]
