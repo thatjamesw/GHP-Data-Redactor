@@ -219,22 +219,22 @@
     <details class="panel benchmark-panel">
       <summary class="benchmark-summary">
         <div>
-          <strong>Benchmark tools</strong>
-          <span>Use these checks when you want to test detector coverage.</span>
+          <strong>Rules vs Deep scan</strong>
+          <span>Compare what the built-in rules and Deep scan redact on a fixed set of samples.</span>
         </div>
-        <span class="summary-button">Benchmark tools</span>
+        <span class="summary-button">Compare</span>
       </summary>
       <div class="panel-body">
         <div class="button-row">
-          <button id="benchmark-button" class="ghost">Run benchmark</button>
+          <button id="benchmark-button" class="ghost">Run comparison</button>
         </div>
         <div class="summary">
-          <div class="metric"><strong id="benchmark-total">0</strong><span>Benchmark cases</span></div>
-          <div class="metric"><strong id="benchmark-hit">0</strong><span>Matched</span></div>
-          <div class="metric"><strong id="benchmark-rate">0%</strong><span>Coverage</span></div>
+          <div class="metric"><strong id="benchmark-total">0</strong><span>Samples</span></div>
+          <div class="metric"><strong id="benchmark-rules">–</strong><span>Rules passed</span></div>
+          <div class="metric"><strong id="benchmark-deep">–</strong><span>Deep scan passed</span></div>
         </div>
         <div id="benchmark-status" class="status"></div>
-        <div id="benchmark-breakdown" class="inline-note">Category breakdown will appear here after running the benchmark.</div>
+        <div id="benchmark-breakdown" class="inline-note">Uses your current settings. Turn on Deep scan at the top to fill in the Deep scan column.</div>
         <div id="benchmark-results" class="mini-results empty">Benchmark results will appear here.</div>
       </div>
     </details>
