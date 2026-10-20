@@ -7,8 +7,9 @@ import { build } from "esbuild";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const modules = path.join(repoRoot, "node_modules");
 const vendor = path.join(repoRoot, "static", "vendor");
-const coreFiles = ["tesseract-core-lstm", "tesseract-core-simd-lstm", "tesseract-core-relaxedsimd-lstm"]
-  .flatMap((name) => [`${name}.wasm.js`, `${name}.wasm`])
+// The .wasm.js cores embed their wasm, and every Baseline browser has wasm SIMD,
+// so the standalone .wasm files and the non-SIMD core are never fetched.
+const coreFiles = ["tesseract-core-simd-lstm.wasm.js", "tesseract-core-relaxedsimd-lstm.wasm.js"]
   .map((file) => [`tesseract.js-core/${file}`, `tesseract/core/${file}`]);
 
 // Stale directories are wiped first so removed upstream files don't linger.
